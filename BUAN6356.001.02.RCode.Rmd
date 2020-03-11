@@ -1,0 +1,318 @@
+
+```{r}
+#4.Exploratory Data Analysis
+
+#4.1.Data preparation
+#4.1.1.Data importation
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+myfile <- read.csv('C:/Users/navee/Documents/Spring19/BA with R/Project/BA_R.csv')
+
+#4.1.2.Missing value check
+#Dataset is clean, there is no missing value.
+colnames(myfile)[colSums(is.na(myfile))>0]
+
+#4.1.3.Unwanted variables removal
+#We found that there is EmployeeNumber variable which is in numeric form and which is not necessary for us to run model because it is actually employee IDs.
+#In addition, there are three variables (EmployeeCount, StandardHours, and Over18) in which there is only one same value for across observations. For example, all observations have the same value which is "1" at EmployeeCount variable.
+#Since those variables are not meaningful for our model, we remove them from dataset.
+myfile$EmployeeNumber <- NULL
+myfile$EmployeeCount <- NULL
+myfile$StandardHours <- NULL
+myfile$Over18 <- NULL
+
+#4.1.4.Data type transformation
+#There are many categorical variables which are in numeric type. For example, Education variable describes education levels of an employee, such as "College", "Bachelor", "Master", etc. Therefore, this variable should be categorical, not numeric one.
+#In total, there are such ten variables: Education, EnvinromentSatisfaction, JobInvolvement, JobLevel, JobStatisfaction, PerformanceRating, RelationshipSatisfaction, StockOptionLevel, TrainingTimesLastYear, and WorkLifeBalance.
+#Therefore, we transform those variables to categorical ones by using as.factor()
+myfile$Education <- as.factor(myfile$Education)
+myfile$EnvironmentSatisfaction <- as.factor(myfile$EnvironmentSatisfaction)
+myfile$JobInvolvement <- as.factor(myfile$JobInvolvement)
+myfile$JobLevel <- as.factor(myfile$JobLevel)
+myfile$JobSatisfaction <- as.factor(myfile$JobSatisfaction)
+myfile$PerformanceRating <- as.factor(myfile$PerformanceRating)
+myfile$RelationshipSatisfaction <- as.factor(myfile$RelationshipSatisfaction)
+myfile$StockOptionLevel <- as.factor(myfile$StockOptionLevel)
+myfile$TrainingTimesLastYear <- as.factor(myfile$TrainingTimesLastYear)
+myfile$WorkLifeBalance <- as.factor(myfile$WorkLifeBalance)
+myfile$Age<-myfile$ï..Age
+
+
+#4.2.Data exploration
+
+#4.2.1.Attrition variable distribution
+#Reponse data (Attribution) is imbalanced between two classes: 1233 "No" vs. 237 "Yes". Therefore, this may bias our prediction. In other words, our prediction result will have more "No" than "Yes".
+#We may consider SMOTE to balance it.
+ggplot(data=myfile, aes(x=Attrition))+
+  geom_bar(fill=c('LightGreen','Orange'))+
+  geom_text(aes(label=..count..), stat='count', vjust=0.2, size=4)+
+  ggtitle('Attrition Distribution')+
+  scale_y_continuous(name='Frequency')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#4.2.2.Relationship between Attrition and Remuneration (MonthlyIncome and MonthlyRate)
+#Employees with low monthly income have a higher attrition rate, compared to those with high monthly income.
+#However, regarding monthly rate, there is no difference in attrition rate between two groups of employees who resigned and who stay with the company.
+#Therefore, we can see that, no matter what pay rate employees can earn, their concern is actual income in each month. This remark needs to be taken in consideration when we want to make any change regarding remuneration. 
+ggplot(data=myfile)+
+  geom_boxplot(aes(x=Attrition, y=MonthlyIncome))+
+  ggtitle('Attrition by Monthly Income')+
+  scale_y_continuous(name='Monthly Income')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+ggplot(data=myfile)+
+  geom_boxplot(aes(x=Attrition, y=MonthlyRate))+
+  ggtitle('Attrition by Monthly Rate')+
+  scale_y_continuous(name='Monthly Rate')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#4.2.3.Relationship between Attrition and Job (JobRole and JobLevel)
+#Senior level such as Directors and Managers has higher age and also has higher monthly income. This group of employees tend to stay in the company. Compared to senior level, junior level such as Laboratory Technicians, Sales Representatives, Hunan Resources is younger but has lower monthly income. The latter group actually contributes to high attrition rate of the company.
+#When we split attrition rate among job level, the result is consistent with our findings from previous part. Employees with low job levels (level 1, 2, 3) have a higher attrition rate, compared to those with higher job levels (level 4 and 5). Again, low job levels are actually junior level, while high job levels are senior level.
+ggplot(data=myfile)+
+  geom_point(aes(x=Age, y=MonthlyIncome, color=JobRole))+
+  ggtitle('Monthly Income vs. Age vs. Job Role')+
+  scale_y_continuous(name='Monthly Income')+
+  scale_color_discrete(name='Job Role')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+jobrole <- myfile%>%
+  group_by(JobRole)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=scales::percent(n/sum(n)))
+jobrole
+ggplot(data=myfile, aes(x=JobRole, fill=Attrition))+
+  geom_bar()+
+  geom_text(data=jobrole, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle('Attrition by Job Role')+
+  scale_x_discrete(name='Job Role', label=c('Healthcare','HR','Lab Tech','Manager','MF Dir','RS Dir','Scientist','Sales Exe','Sales Rep'))+
+  scale_y_continuous(name='Number of employees')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+level <- myfile%>%
+  group_by(JobLevel)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=scales::percent(n/sum(n)))
+level
+ggplot(data=myfile, aes(x=JobLevel, fill=Attrition))+
+  geom_bar()+
+  geom_text(data=level, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle('Attrition by Job Level')+
+  scale_x_discrete(name='Job Level')+
+  scale_y_continuous(name='Number of employees')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#4.2.4.Relationship between Attrition and Work Load (OverTime)
+#It makes sense that employees who have high work load which requires them to work overtime tend to have higher attrition rate. Meanwhile, for those who do not need to do overtime, they tend to stay with the company.
+ot <- myfile%>%
+  group_by(OverTime)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=scales::percent(n/sum(n)))
+ot
+ggplot(data=myfile, aes(x=OverTime, fill=Attrition))+
+  geom_bar()+
+  geom_text(data=ot, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle('Attrition by Over Time')+
+  scale_x_discrete(name='Over Time')+
+  scale_y_continuous(name='Number of employees')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#4.2.5.Relationship between Attrition and Location (DistanceFromHome)
+#Employees who live far from office tend to have a higher attrition rate, compared to those who live nearby office area. It turns out that office location 
+ggplot(data=myfile)+
+  geom_boxplot(aes(x=Attrition, y=DistanceFromHome))+
+  ggtitle('Attrition by Distance From Home')+
+  scale_y_continuous(name='Distance From Home')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#4.2.6.Relationship between Attrition and Privilege (StockOptionLevel)
+#It is signaled that stock level is one of important factors which impact attrition rate. Employees who have higher stock level tend to be more engaged and to stay with the company. In contrast, employees with lower stock level tend to leave the company.
+stock <- myfile%>%
+  group_by(StockOptionLevel)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=scales::percent(n/sum(n)))
+stock
+ggplot(data=myfile, aes(x=StockOptionLevel, fill=Attrition))+
+  geom_bar()+
+  geom_text(data=stock, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle('Attrition by Stock Option Level')+
+  scale_x_discrete(name='Stock Option Level')+
+  scale_y_continuous(name='Number of employees')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+```
+
+```{r}
+#5.Models and analysis
+
+#5.1.Data split
+require(DMwR)
+library(e1071)
+require(ROCR)
+library(gbm)
+library(glmnet)
+require(boot)
+library(caret)
+library(pROC)
+library(modelr)
+library(car)
+library(MASS)
+library(class)
+library(randomForest)
+library(caTools)
+#First, we divide data set into training and test test with a ratio of 9:1.
+set.seed(0)
+subset <- sample.split(myfile$Attrition, SplitRatio = 0.9)
+trainO <- subset(myfile, subset==TRUE) 
+test <- subset(myfile, subset==FALSE)
+
+#5.2.Variable selection
+trainO$Attrition <- ifelse(trainO$Attrition=="Yes",1,0)
+x <- model.matrix(Attrition~., trainO)[,-1]
+set.seed(1)
+cv.logfit <- cv.glmnet(x, trainO$Attrition, family = "binomial", alpha = 1)
+logfit <- glmnet(x,trainO$Attrition, family = "binomial", alpha = 1, lambda = (cv.logfit$lambda.min))
+trainO$Attrition <- ifelse(trainO$Attrition==1, "Yes","No")
+trainO$Attrition <- as.factor(trainO$Attrition)
+lasso.df <- as.data.frame(as.matrix(coef(logfit)))%>%
+  mutate(feature = row.names(.))
+names(lasso.df)[names(lasso.df)=="s0"] <- "coefficient"
+ggplot(lasso.df, aes(x = reorder(feature, coefficient), 
+                        y = coefficient)) +
+  geom_bar(stat='identity') +
+  coord_flip() +
+  theme_classic() +
+  labs(
+    x     = "Feature",
+    y     = "Coefficient",
+    title = "Lasso- Model Selection"
+  )
+#The above graph shows the importance of each coefficient in the data, using lasso. All the coefficients which have no impact on Attrition have been penalized by lasso and have been brought down to zero. Hence, using lasso, we decide to remove MonthlyRate and PercentSalaryHike, as they seem to have no impact on Attrition.
+a <- (Attrition~.-MonthlyRate-PercentSalaryHike)
+
+#5.3.Modeling
+#Logistic
+glm.fit<-glm(a, trainO, family = "binomial")
+glm.predict<- predict(glm.fit, test, type = "response")
+table(predicted=glm.predict>0.5, actual=test$Attrition)
+#Naive Bayes
+nb.fit<- naiveBayes(a, trainO)
+nb.predict<- predict(nb.fit,test)
+table(nb.predict, test$Attrition)
+mean(nb.predict==test$Attrition)
+#LDA
+ldfit<- lda(a, trainO)
+ldpredict<- predict(ldfit, test)
+mean(ldpredict$class==test$Attrition)
+table(predicted=ldpredict$class,actual=test$Attrition)
+#SVM
+svm.fit<-svm(a, trainO, cost= 12,kernel= "linear", scale = TRUE, decision.values=TRUE, probability=T)
+svm.predict<-predict(svm.fit, test, prabability=T)
+table(predicted=svm.predict, actual=test$Attrition)
+mean(svm.predict==test$Attrition)
+#Random Forrest
+set.seed(3)
+rf.fit<- randomForest(a, data=trainO, mtry = 6,importance = TRUE, n.tree=600 )
+rf.predict<- predict(rf.fit, test)
+table(predicted=rf.predict, actual=test$Attrition)
+mean(rf.predict==test$Attrition)
+#GBM
+trainO$Attrition<- ifelse(trainO$Attrition=="Yes",1,0)
+test$Attrition<- ifelse(test$Attrition=="Yes", 1,0)
+set.seed(44)
+boost.fit=gbm(Attrition~.,data=trainO,distribution="bernoulli", n.minobsinnode = 10,n.trees=400,shrinkage = 0.1, interaction.depth=4, cv.folds = 5, n.cores = 2)
+best.boost<- gbm.perf(boost.fit, method = "cv")
+boost.predict<- predict(boost.fit,test, n.trees = best.boost, type = "response")
+table(predicted=boost.predict>0.5,actual= test$Attrition)
+trainO$Attrition<- as.factor(ifelse(trainO$Attrition==1, "Yes","No"))
+test$Attrition<- as.factor(ifelse(test$Attrition==1, "Yes","No"))
+#As we can observe that the accuracy of all the models is really good, almost all the models cross the accuracy of 90%. However, most of them are lagging on the sensitivity part and in this project our aim is to accurately predict the employee attrition (whether an employee will leave the company or not), which our models are not able to serve well.
+
+
+#5.4.Imbalance issue
+#As we find out from Exploration part that there is a huge imbalance in our dependent variable which is probably causing the sensitivity issue. The sensitivity is calculated as the number of correct positive predictions of employee attrition divided by the total number of positive employee attrition. 
+ggplot(data=myfile, aes(x=Attrition))+
+  geom_bar(fill=c('LightGreen','Orange'))+
+  geom_text(aes(label=..count..), stat='count', vjust=0.2, size=4)+
+  ggtitle('Attrition Distribution')+
+  scale_y_continuous(name='Frequency')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+#Now, in order to take care of the imbalance issue, we needto balance the data either by under-sampling the majority class which is "No", or over-sampling the minority class which is "Yes". By under-sampling, we will lose lot of our data and we cannot afford to lose data as we do not have much data. But we know the function called SMOTE which is kind of in between under-sample as well as over-sample at the same time. Hence, we use SMOTE to get rid of the imbalance issue. Moreover, SMOTE should only be applied on training data and leave untouched on test data.
+set.seed(0)
+train <- SMOTE(Attrition~.,trainO,perc.over =100)
+#After running SMOTE we see our dependent variable in training set is balanced, each class now has 426 observations. So we will re-run the models on training data and validate the fit on test data.  
+ggplot(data=train, aes(x=Attrition))+
+  geom_bar(fill=c('LightGreen','Orange'))+
+  geom_text(aes(label=..count..), stat='count', vjust=0.2, size=4)+
+  ggtitle('Attrition Distribution')+
+  scale_y_continuous(name='Frequency')+
+  theme(plot.title=element_text(size=20, color='DarkBlue'))
+
+#5.5.Modeling after handling imbalance issue
+#Random Forest
+set.seed(3)
+rf.fit1<- randomForest(a, data=train, mtry = 6,importance = TRUE, n.tree=600 )
+rf.predict1<- predict(rf.fit1, test)
+table(predicted=rf.predict1, actual=test$Attrition)
+mean(rf.predict1==test$Attrition)
+#Logistic
+glm.fit1<-glm(a, trainO, family = "binomial")
+glm.predict1<- predict(glm.fit1, test, type = "response")
+table(predicted=glm.predict1>0.5, actual=test$Attrition)
+#Naive bayes
+nb.fit1<- naiveBayes(a, train)
+nb.predict1<- predict(nb.fit1,test)
+table(nb.predict1, test$Attrition)
+mean(nb.predict1==test$Attrition)
+#LDA
+ldfit1<- lda(a, train)
+ldpredict1<- predict(ldfit1, test)
+mean(ldpredict1$class==test$Attrition)
+table(predicted=ldpredict1$class,actual=test$Attrition)
+#GBM
+train$Attrition<- ifelse(train$Attrition=="Yes",1,0)
+test$Attrition<- ifelse(test$Attrition=="Yes", 1,0)
+set.seed(44)
+boost.fit1=gbm(Attrition~.,data=train,distribution="bernoulli", n.minobsinnode = 10,n.trees=400,shrinkage = 0.1, interaction.depth=4, cv.folds = 5, n.cores = 2)
+best.boost1<- gbm.perf(boost.fit1, method = "cv")
+boost.predict1<- predict(boost.fit1,test, n.trees = best.boost, type = "response")
+table(predicted=boost.predict1>0.5,actual= test$Attrition)
+train$Attrition<- as.factor(ifelse(train$Attrition==1, "Yes","No"))
+test$Attrition<- as.factor(ifelse(test$Attrition==1, "Yes","No"))
+#SVM
+svm.fit1<-svm(a, train, cost= 12,kernel= "linear", scale = TRUE, decision.values=TRUE, probability=T)
+svm.predict1<-predict(svm.fit1, test, prabability=T)
+table(predicted=svm.predict1, actual=test$Attrition)
+mean(svm.predict1==test$Attrition)
+#After taking care of the imbalance issue, although accuracy has been impacted, our models perform far better in terms of sensitivity. The graph gives us fair idea about model and it is performance on both aspects i.e, accuracy as well as sensitivity. We can observe that SVM, GBM, Random Forrest and Logistic all seem to have equal accuracy, but SVM does slightly better in sesitivity. Hence, we believe SVM will do the best for predicting attrition.
+
+#5.6.Model selection
+#Importance Plot
+feat_imp_df <- importance(rf.fit1) %>% 
+  data.frame() %>% 
+  mutate(feature = row.names(.)) 
+#Plot dataframe
+ggplot(feat_imp_df, aes(x = reorder(feature, MeanDecreaseGini), 
+                        y = MeanDecreaseGini)) +
+  geom_bar(stat='identity') +
+  coord_flip() +
+  theme_classic() +
+  labs(
+    x     = "Feature",
+    y     = "Importance",
+    title = "Feature Importance: Random Forest"
+  )
+#ROC
+rocplot=function(pred, truth, ...){
+  predob = prediction (pred, truth)
+  perf = performance (predob , "tpr", "fpr") 
+  plot(perf ,...)
+}
+rocplot(predict(rf.fit1, test,type = "prob")[,2],test$Attrition,type="b",lty=1, col= 1, pch=19)
+rocplot(attributes(predict(svm.fit1, test, decision.values = TRUE, probability = T))$probabilities[,2],test$Attrition,add=T, col= 2, type="b", pch=19)
+rocplot(predict(glm.fit1, test, type = "response"), test$Attrition, add=T, col= 3, type="b", pch=19)
+rocplot(predict(nb.fit1,test, type = "raw")[,2],test$Attrition, add=T, col=4, type="b", pch=19)
+rocplot(ldpredict1$posterior[,2], test$Attrition, add=T, col=5, type="b", pch=19)
+rocplot(boost.predict1, test$Attrition, add=T, col= 7, type="b", pch=19)
+legend("bottomright",legend = c("RandomForrest", "SVM","Logistic", "NaiveBayes","LDA","GBM"), col = c(1,2,3,4,5,7),pt.cex = 1, cex = 0.5,pch=19)
+#To confirm our decision on model selection, we plot ROC curve which also shows the performance of our models and LDA clearly is touching more to the corner.
+#Additionally, we have the plot of variables ranked on the base of its importance, derived from Random Forrest Model. From this plot, we know which variables are important to consider action plan for the company.
+```
+
